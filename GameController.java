@@ -3,9 +3,16 @@ import java.util.List;
 
 
 public class GameController {
-    private static final int[] ARRIVAL_TURNS = {1, 4, 7, 10, 13, 16};
 
     private final Settings settings;
+    
+    private final List<Customer> arrivals = List.of(
+            new RegularCustomer(1, 1),
+            new VIPCustomer(2, 4),
+            new RegularCustomer(3, 7),
+            new CriticCustomer(4, 10),
+            new RegularCustomer(5, 13),
+            new RegularCustomer(6, 16));
     private final WaitingQueue queue = new WaitingQueue();
     private final List<Table> tables = new ArrayList<>();
     private final List<Customer> customers = new ArrayList<>();
@@ -19,7 +26,6 @@ public class GameController {
     private int unhappyDepartures = 0;
     private int paidCount = 0;
     private int satisfactionSum = 0;
-    private int nextCustomerId = 1;
     private boolean turnInProgress = false;
 
     public GameController(Settings settings) {
@@ -65,9 +71,8 @@ public class GameController {
         chef.resetTurn();
         cashier.resetTurn();
 
-        for (int t : ARRIVAL_TURNS) {
-            if (t == currentTurn) {
-                Customer c = new Customer(nextCustomerId++, currentTurn);
+        for (Customer c : arrivals) {
+            if (c.getArrivalTurn() == currentTurn) {
                 customers.add(c);
                 queue.add(c);
             }
@@ -90,7 +95,7 @@ public class GameController {
             }
             return message;
         } catch (IllegalStateException | IllegalArgumentException e) {
-            throw new ActionRejectedException(e.getMessage());
+            throw new ActionRejectedException(e.getMessage());  
         }
     }
 
@@ -110,8 +115,10 @@ public class GameController {
             throw new ActionRejectedException("Customer #" + customerId + " is not seated and ready to order (" + c.getStatus() + ").");
         }
         Order o = waiter.takeOrder(c);
+        String price = money(o.getBillCents());
+        if (o.getBillCents() != o.getMenuItem().getPriceCents()) price += ", menu price " + money(o.getMenuItem().getPriceCents());
         return "Waiter takes the order of " + label(c) + ": " + o.getMenuItem().getName()
-                + " (" + money(cents(o)) + ", " + o.getMenuItem().getPrepUnit() + " prep unit(s)).";
+                + " (" + price + ", " + o.getMenuItem().getPrepUnit() + " prep unit(s)).";
     }
 
     private String serve(int customerId) {
@@ -170,10 +177,10 @@ public class GameController {
     
         Customer paid = cashier.payOldestReadyToPay(customers, currentTurn);
         if (paid != null) {
-            int bill = cents(paid.getOrder());
+            int bill = paid.getOrder().getBillCents();   
             revenueCents += bill;
             paidCount++;
-            satisfactionSum += paid.getSatisfaction();  
+            satisfactionSum += paid.getSatisfaction();
             events.add("Cashier collects " + money(bill) + " from " + label(paid)
                     + " (satisfaction " + paid.getSatisfaction() + "). The table is free.");
         }
@@ -233,12 +240,8 @@ public class GameController {
         return c;
     }
 
-    private static int cents(Order o) {
-        return Math.round(o.getBill() * 100);
-    }
-
     static String label(Customer c) {
-        return "Customer #" + c.getId();
+        return "Customer #" + c.getId() + " (" + c.getTypeName() + ")";
     }
 
     static String money(int cents) {

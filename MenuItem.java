@@ -1,6 +1,6 @@
 public class MenuItem {
     private final String name;
-    private final float price;
+    private final int priceCents;   
     private final int prepUnit;
 
     public MenuItem(String name) {
@@ -10,17 +10,17 @@ public class MenuItem {
         switch (name.toLowerCase()){
             case "salad":
                 this.name = "Salad";
-                this.price = 9.00f;
+                this.priceCents = 900;
                 this.prepUnit =1;
                 break;
             case "burger":
                 this.name = "Burger";
-                this.price = 15.00f;
+                this.priceCents = 1500;
                 this.prepUnit =1;
                 break;
             case "pasta":
                 this.name = "Pasta";
-                this.price = 18.00f;
+                this.priceCents = 1800;
                 this.prepUnit =2;
                 break;
             default:
@@ -32,11 +32,15 @@ public class MenuItem {
         return name;
     }
 
-    public float getPrice() {
-        return price;
+    public int getPriceCents() {
+        return priceCents;
     }
 
     public int getPrepUnit() {
         return prepUnit;
+    }
+
+    public static int percentOf(int cents, int percent) {
+        return (cents * percent + 50) / 100;
     }
 }

@@ -214,6 +214,8 @@ public class ConsoleUI {
                 + GameController.money(s.getMinRevenueCents()) + ", average satisfaction of paid customers at least "
                 + s.getMinAverageSatisfaction() + ".");
         System.out.println("Menu: Salad $9.00 (1 unit), Burger $15.00 (1 unit), Pasta $18.00 (2 units). Customers choose their own food.");
+        System.out.println("Customers: Regular (-8 satisfaction per waiting turn, full price), VIP (-5, 10% off the bill),");
+        System.out.println("           Critic (-12, full price, always orders Pasta).");
         System.out.println("Each turn the Waiter acts first, then the Chef. Answer every question with a number.");
     }
 

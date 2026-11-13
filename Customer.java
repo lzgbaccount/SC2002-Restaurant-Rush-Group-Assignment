@@ -1,8 +1,7 @@
-public class Customer {
+public abstract class Customer {
     private int id;
     private static final int START_SATISFACTION = 100;
-    private static final int LOSS_SATISFACTION=8;
-    private static final String[] MENU= {"Salad","Burger","Pasta"};    
+    private static final String[] MENU= {"Salad","Burger","Pasta"};
     private int satisfaction;
     private Table table;
     private int arrivalTurn;
@@ -13,7 +12,7 @@ public class Customer {
 
 
 
-    public Customer(int id, int arrivalTurn) {
+    protected Customer(int id, int arrivalTurn) {
         this.id = id;
         this.arrivalTurn = arrivalTurn;
         this.satisfaction = START_SATISFACTION;
@@ -42,6 +41,14 @@ public class Customer {
         return status;
     }
 
+    public abstract String getTypeName();
+
+    protected abstract int getSatisfactionLoss();
+
+    protected int calculateBill(MenuItem item) {
+        return item.getPriceCents();
+    }
+
     private void requireStatus(CustomerStatus expectedStatus, String action) {
         if (status != expectedStatus) {
             throw new IllegalStateException("Customer must be " + expectedStatus + " to " + action);
@@ -62,7 +69,7 @@ public class Customer {
 
     public Order placeOrder(MenuItem item){
         requireStatus(CustomerStatus.SEATED,"place an order");
-        this.order = new Order(this, item);
+        this.order = new Order(this, item, calculateBill(item));  
         this.status = CustomerStatus.ORDERED;
         return order;
     }
@@ -101,7 +108,7 @@ public class Customer {
 
     public void applyWaitingPenalty() {
         if (isLosingSatisfaction()) {
-            satisfaction -= LOSS_SATISFACTION;
+            satisfaction -= getSatisfactionLoss();
             if (satisfaction < 0) {
                 satisfaction = 0;
             }

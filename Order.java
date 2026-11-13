@@ -4,13 +4,18 @@ public class Order {
     private int remainingUnits;
     private int readyonturn;
     private OrderStatus status;
+    private final int billCents;  
 
-    public Order(Customer customer, MenuItem menuItem) {
+    public Order(Customer customer, MenuItem menuItem, int billCents) {
         if (customer == null || menuItem == null) {
             throw new IllegalArgumentException("Customer and MenuItem cannot be null");
         }
+        if (billCents < 0) {
+            throw new IllegalArgumentException("Bill cannot be negative");
+        }
         this.customer = customer;
         this.menuItem = menuItem;
+        this.billCents = billCents;
         this.remainingUnits = menuItem.getPrepUnit();
         this.readyonturn = -1;
         this.status = OrderStatus.PREPARING;
@@ -31,8 +36,8 @@ public class Order {
     public OrderStatus getStatus() {
         return status;
     }
-    public float getBill() {
-        return menuItem.getPrice();
+    public int getBillCents() {
+        return billCents;
     }
 
   
