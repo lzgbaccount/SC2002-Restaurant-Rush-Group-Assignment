@@ -19,11 +19,14 @@ public class ConsoleUI {
         printWelcome();
         try {
             while (!game.isGameOver()) {
-                game.startTurn();
+                List<String> startEvents = game.startTurn();
                 printTurnHeader();
                 printArrivals();
+                printEvents(startEvents);
                 printState();
 
+                if (game.canActivatePowerUp()) powerUpPhase();
+                hostPhase();
                 waiterPhase();
                 chefPhase();
 
@@ -34,6 +37,35 @@ public class ConsoleUI {
             System.out.println(stop.getMessage() + " Game stopped at turn " + game.getCurrentTurn() + ".");
         }
     }
+    private void powerUpPhase() {
+        System.out.println();
+        System.out.println("HAPPY HOUR POWER UP is available (once per game). If switched on now it lasts this turn and the next:");
+        System.out.println("  orders taken get " + HappyHourPowerUp.DISCOUNT_PERCENT + "% off, and customers waiting for a table or food recover "
+                + HappyHourPowerUp.SATISFACTION_RECOVERY + " satisfaction at the start of each of those turns.");
+        while (true) {
+            int choice = readNumber("Activate Happy Hour Power Up? 1 = yes, 0 = no: ");
+            switch (choice) {
+                case 1:
+                    try {
+                        printEvents(game.activateHappyHourPowerUp());
+                    } catch (ActionRejectedException e) {
+                        System.out.println("  Not allowed: " + e.getMessage());
+                    }
+                    return;
+                case 0:
+                    return;
+                default:
+                    System.out.println("  Please enter 1 or 0.");
+            }
+        }
+    }
+
+    private void hostPhase() {
+        runMenu("HOST", "Host choice: ", new String[] {
+                "Seat the next customer in the queue",
+                "Wait (do nothing this turn)" },
+                choice -> choice == 1 ? seatMenu(table -> game.hostSeat(table)) : attempt(() -> game.hostWait()));
+    }
 
     private void waiterPhase() {
         runMenu("WAITER", "Waiter choice: ", new String[] {
@@ -43,7 +75,7 @@ public class ConsoleUI {
                 "Wait (do nothing this turn)" },
                 choice -> {
                     switch (choice) {
-                        case 1: return seatMenu();
+                        case 1: return seatMenu(table -> game.waiterAct(WaiterAction.SEAT, table));
                         case 2: return takeOrderMenu();
                         case 3: return serveMenu();
                         default: return attempt(() -> game.waiterAct(WaiterAction.WAIT, null));
@@ -51,7 +83,7 @@ public class ConsoleUI {
                 });
     }
 
-    private String seatMenu() {
+    private String seatMenu(SeatAction seatAction) {
         List<Customer> waiting = game.getWaitingCustomers();
         if (waiting.isEmpty()) {
             System.out.println("  Nobody is in the waiting queue.");
@@ -61,7 +93,7 @@ public class ConsoleUI {
         System.out.println("  Seat " + GameController.label(next) + " (front of queue) at which table?");
         Integer table = chooseTable(t -> describeTableForSeating(t));
         if (table == null) return null;
-        return attempt(() -> game.waiterAct(WaiterAction.SEAT, table));
+        return attempt(() -> seatAction.seat(table));
     }
 
     private String takeOrderMenu() {
@@ -114,6 +146,7 @@ public class ConsoleUI {
     private interface TableDescriber { String describe(Table t); }
     private interface CustomerAction { String apply(Customer c); }
     private interface Action { String run(); }
+    private interface SeatAction { String seat(Integer table); }
 
     private Integer chooseTable(TableDescriber describer) {
         List<Table> tables = game.getTables();
@@ -209,14 +242,16 @@ public class ConsoleUI {
     private void printWelcome() {
         Settings s = game.getSettings();
         System.out.println("=== RESTAURANT RUSH ===");
-        System.out.println("You are the manager. " + s.getMaxTurns() + " turns, " + s.getTableCount() + " tables, 1 Waiter, 1 Chef, 1 Cashier.");
+        System.out.println("You are the manager. " + s.getMaxTurns() + " turns, " + s.getTableCount() + " tables, 1 Host, 1 Waiter, 1 Chef, 1 Cashier.");
         System.out.println("Goal after turn " + s.getMaxTurns() + ": at least " + s.getMinPaidCustomers() + " paid customers, revenue at least "
                 + GameController.money(s.getMinRevenueCents()) + ", average satisfaction of paid customers at least "
                 + s.getMinAverageSatisfaction() + ".");
         System.out.println("Menu: Salad $9.00 (1 unit), Burger $15.00 (1 unit), Pasta $18.00 (2 units). Customers choose their own food.");
         System.out.println("Customers: Regular (-8 satisfaction per waiting turn, full price), VIP (-5, 10% off the bill),");
         System.out.println("           Critic (-12, full price, always orders Pasta).");
-        System.out.println("Each turn the Waiter acts first, then the Chef. Answer every question with a number.");
+        System.out.println("Combo: Salad + Pasta Combo $24.30 (3 units) - ordered by customers #3 and #6.");
+        System.out.println("Happy Hour Power Up: once per game, at the start of a turn, for that turn and the next.");
+        System.out.println("Each turn the Host acts first, then the Waiter, then the Chef. Answer every question with a number.");
     }
 
     private void printTurnHeader() {
@@ -229,6 +264,7 @@ public class ConsoleUI {
         Result r = game.getResult();
         System.out.println("Revenue: " + r.getRevenueText() + " | Avg satisfaction (paid): " + r.getAverageSatisfactionText()
                 + " | Paid: " + r.getPaidCount() + " | Left unhappy: " + r.getUnhappyDepartures());
+        System.out.println("Happy Hour Power Up: " + describePowerUp());
 
         List<Customer> waiting = game.getWaitingCustomers();
         StringBuilder q = new StringBuilder("Waiting queue: ");
@@ -273,12 +309,21 @@ public class ConsoleUI {
         boolean canSeat = free.length() > 0 && !game.getWaitingCustomers().isEmpty();
 
         System.out.println("Staff tasks available:");
+        System.out.println("  Host:   seat " + (canSeat ? "(free table" + free + ")" : "(no)") + " | wait");
         System.out.println("  Waiter: seat " + (canSeat ? "(free table" + free + ")" : "(no)")
                 + " | take order " + (order.length() == 0 ? "(none)" : "(table" + order + ")")
                 + " | serve " + (serve.length() == 0 ? "(none)" : "(table" + serve + ")")
                 + " | wait");
         System.out.println("  Chef:   cook " + (cook.length() == 0 ? "(none)" : "(table" + cook + ")") + " | wait");
         System.out.println("  Cashier: automatic (one READY_TO_PAY customer per turn, oldest first)");
+    }
+
+    private String describePowerUp() {
+        if (game.isPowerUpActive()) {
+            int left = game.getPowerUpRemainingTurns();
+            return "ACTIVE - " + left + (left == 1 ? " turn left (this is the last turn)" : " turns left (this turn and the next)");
+        }
+        return game.isPowerUpAvailable() ? "available (can be switched on at the start of a turn)" : "used";
     }
 
     private void printArrivals() {

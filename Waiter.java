@@ -10,10 +10,10 @@ public class Waiter extends Staff {
         markActed();
     }
 
-    public Order takeOrder(Customer customer) {
+    public Order takeOrder(Customer customer, HappyHourPowerUp powerUp) {
         requireCanAct();
         MenuItem item = customer.choosefood();
-        Order order = customer.placeOrder(item);
+        Order order = customer.placeOrder(item, powerUp);
         markActed();
         return order;
     }

@@ -1,11 +1,11 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 
 public class GameController {
 
     private final Settings settings;
-    
     private final List<Customer> arrivals = List.of(
             new RegularCustomer(1, 1),
             new VIPCustomer(2, 4),
@@ -16,9 +16,11 @@ public class GameController {
     private final WaitingQueue queue = new WaitingQueue();
     private final List<Table> tables = new ArrayList<>();
     private final List<Customer> customers = new ArrayList<>();
+    private final Host host = new Host();
     private final Waiter waiter = new Waiter();
     private final Chef chef = new Chef();
     private final Cashier cashier = new Cashier();
+    private final HappyHourPowerUp powerUp = new HappyHourPowerUp();
 
     private int currentTurn = 0;
     private int revenueCents = 0;
@@ -40,6 +42,10 @@ public class GameController {
     public List<Table> getTables() { return tables; }
     public List<Customer> getCustomers() { return customers; }
     public boolean isGameOver() { return currentTurn >= settings.getMaxTurns() && !turnInProgress; }
+    public boolean isPowerUpAvailable() { return powerUp.isAvailable(); }
+    public boolean isPowerUpActive() { return powerUp.isActive(); }
+    public int getPowerUpRemainingTurns() { return powerUp.getRemainingTurns(); }
+    public boolean canActivatePowerUp() { return turnInProgress && powerUp.isAvailable() && host.canAct() && waiter.canAct() && chef.canAct(); }
 
     public List<Customer> getWaitingCustomers() {
         List<Customer> waiting = new ArrayList<>();
@@ -63,30 +69,82 @@ public class GameController {
     }
 
 
-    public void startTurn() {
+    public List<String> startTurn() {
         if (isGameOver() || turnInProgress) throw new IllegalStateException("Cannot start a turn now.");
         currentTurn++;
         turnInProgress = true;
+        host.resetTurn();
         waiter.resetTurn();
         chef.resetTurn();
         cashier.resetTurn();
 
+        List<String> events = new ArrayList<>();
         for (Customer c : arrivals) {
             if (c.getArrivalTurn() == currentTurn) {
                 customers.add(c);
-                queue.add(c);
+                queue.add(c);  
             }
         }
+        if (powerUp.isActive()) {   
+            events.add("HAPPY HOUR POWER UP continues (last turn).");
+            events.addAll(recoverWaitingCustomers());
+        }
+        return events;
+    }
+
+
+    public List<String> activateHappyHourPowerUp() {
+        requireTurn();
+        if (!powerUp.isAvailable()) throw new ActionRejectedException("The Happy Hour Power Up has already been used this game.");
+        if (!host.canAct() || !waiter.canAct() || !chef.canAct()) {
+            throw new ActionRejectedException("The Happy Hour Power Up can only be switched on at the start of a turn, before any staff act.");
+        }
+        powerUp.activate();
+        List<String> events = new ArrayList<>();
+        events.add("HAPPY HOUR POWER UP is ON for this turn and the next: orders taken get "
+                + HappyHourPowerUp.DISCOUNT_PERCENT + "% off.");
+        events.addAll(recoverWaitingCustomers());
+        return events;
+    }
+
+    private List<String> recoverWaitingCustomers() {
+        List<String> events = new ArrayList<>();
+        for (Customer c : customers) {
+            int before = c.getSatisfaction();
+            c.recover(HappyHourPowerUp.SATISFACTION_RECOVERY);
+            if (c.getSatisfaction() != before) {
+                events.add(label(c) + " recovers satisfaction: " + before + " -> " + c.getSatisfaction() + ".");
+            }
+        }
+        return events;
+    }
+
+    public String hostSeat(Integer tableNumber) {
+        requireTurn();
+        if (!host.canAct()) throw new ActionRejectedException("The Host has already acted this turn.");
+        try {
+            return seatNextCustomer(tableNumber, "Host", (c, t) -> host.seat(c, t));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw new ActionRejectedException(e.getMessage());
+        }
+    }
+
+    public String hostWait() {
+        requireTurn();
+        if (!host.canAct()) throw new ActionRejectedException("The Host has already acted this turn.");
+        host.waitTurn();
+        return "Host waits this turn.";
     }
 
    
     public String waiterAct(WaiterAction action, Integer argument) {
         requireTurn();
+        requireHostFirst();
         if (!waiter.canAct()) throw new ActionRejectedException("The Waiter has already acted this turn.");
         try {
             String message;
             switch (action) {
-                case SEAT: message = seat(argument); break;
+                case SEAT: message = seatNextCustomer(argument, "Waiter", (c, t) -> waiter.seat(c, t)); break;
                 case TAKE_ORDER: message = takeOrder(requireId(argument)); break;
                 case SERVE: message = serve(requireId(argument)); break;
                 default:
@@ -99,14 +157,19 @@ public class GameController {
         }
     }
 
-    private String seat(Integer tableNumber) {
+    private String seatNextCustomer(Integer tableNumber, String staffName, BiConsumer<Customer, Table> seatWith) {
+        Table t = tableForSeating(tableNumber);
+        Customer c = nextWaitingFromQueue();
+        seatWith.accept(c, t);
+        return staffName + " seats " + label(c) + " at Table " + t.getNumber() + ".";
+    }
+
+    private Table tableForSeating(Integer tableNumber) {
         if (getWaitingCustomers().isEmpty()) throw new ActionRejectedException("Nobody is waiting for a table.");
         if (tableNumber == null) throw new ActionRejectedException("Choose a table number.");
         Table t = findTable(tableNumber);
         if (t.isOccupied()) throw new ActionRejectedException("Table " + t.getNumber() + " is occupied.");
-        Customer c = nextWaitingFromQueue();
-        waiter.seat(c, t);
-        return "Waiter seats " + label(c) + " at Table " + t.getNumber() + ".";
+        return t;
     }
 
     private String takeOrder(int customerId) {
@@ -114,9 +177,10 @@ public class GameController {
         if (c.getStatus() != CustomerStatus.SEATED) {
             throw new ActionRejectedException("Customer #" + customerId + " is not seated and ready to order (" + c.getStatus() + ").");
         }
-        Order o = waiter.takeOrder(c);
+        Order o = waiter.takeOrder(c, powerUp);
         String price = money(o.getBillCents());
         if (o.getBillCents() != o.getMenuItem().getPriceCents()) price += ", menu price " + money(o.getMenuItem().getPriceCents());
+        if (powerUp.isActive()) price += ", Happy Hour Power Up";
         return "Waiter takes the order of " + label(c) + ": " + o.getMenuItem().getName()
                 + " (" + price + ", " + o.getMenuItem().getPrepUnit() + " prep unit(s)).";
     }
@@ -169,15 +233,15 @@ public class GameController {
     
     public List<String> endTurn() {
         requireTurn();
-        if (waiter.canAct() || chef.canAct()) {
-            throw new ActionRejectedException("The Waiter and the Chef must each act or wait before the turn can end.");
+        if (host.canAct() || waiter.canAct() || chef.canAct()) {
+            throw new ActionRejectedException("The Host, the Waiter and the Chef must each act or wait before the turn can end.");
         }
         List<String> events = new ArrayList<>();
 
     
         Customer paid = cashier.payOldestReadyToPay(customers, currentTurn);
         if (paid != null) {
-            int bill = paid.getOrder().getBillCents();   
+            int bill = paid.getOrder().getBillCents();  
             revenueCents += bill;
             paidCount++;
             satisfactionSum += paid.getSatisfaction();
@@ -203,6 +267,9 @@ public class GameController {
                 }
             }
         }
+        boolean wasActive = powerUp.isActive();
+        powerUp.endTurn();
+        if (wasActive && !powerUp.isActive()) events.add("The Happy Hour Power Up has ended.");
         turnInProgress = false;
         return events;
     }
@@ -210,6 +277,10 @@ public class GameController {
    
     private void requireTurn() {
         if (!turnInProgress) throw new IllegalStateException("No turn is in progress.");
+    }
+
+    private void requireHostFirst() {
+        if (host.canAct()) throw new ActionRejectedException("The Host acts before the Waiter: choose the Host's task (or wait) first.");
     }
 
     private void requireWaiterFirst() {
@@ -239,7 +310,7 @@ public class GameController {
         } while (c != null && c.getStatus() != CustomerStatus.WAITING);
         return c;
     }
-
+    
     static String label(Customer c) {
         return "Customer #" + c.getId() + " (" + c.getTypeName() + ")";
     }

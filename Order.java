@@ -4,7 +4,7 @@ public class Order {
     private int remainingUnits;
     private int readyonturn;
     private OrderStatus status;
-    private final int billCents;  
+    private final int billCents;   
 
     public Order(Customer customer, MenuItem menuItem, int billCents) {
         if (customer == null || menuItem == null) {

@@ -1,6 +1,6 @@
 public class MenuItem {
     private final String name;
-    private final int priceCents;   
+    private final int priceCents;  
     private final int prepUnit;
 
     public MenuItem(String name) {
@@ -26,6 +26,15 @@ public class MenuItem {
             default:
                 throw new IllegalArgumentException("Invalid menu item: " + name);
         }
+    }
+
+    protected MenuItem(String name, int priceCents, int prepUnit) {
+        if (name == null || priceCents < 0 || prepUnit < 1) {
+            throw new IllegalArgumentException("Invalid menu item");
+        }
+        this.name = name;
+        this.priceCents = priceCents;
+        this.prepUnit = prepUnit;
     }
 
     public String getName() {

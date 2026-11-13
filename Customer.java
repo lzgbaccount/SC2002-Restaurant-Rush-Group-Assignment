@@ -1,7 +1,8 @@
 public abstract class Customer {
     private int id;
     private static final int START_SATISFACTION = 100;
-    private static final String[] MENU= {"Salad","Burger","Pasta"};
+    private static final int COMBO_EVERY = 3;   
+    private static final String[] MENU = {"Salad", "Burger", "Pasta"};
     private int satisfaction;
     private Table table;
     private int arrivalTurn;
@@ -42,9 +43,7 @@ public abstract class Customer {
     }
 
     public abstract String getTypeName();
-
     protected abstract int getSatisfactionLoss();
-
     protected int calculateBill(MenuItem item) {
         return item.getPriceCents();
     }
@@ -64,12 +63,15 @@ public abstract class Customer {
     }
 
     public MenuItem choosefood() {
-       return new MenuItem(MENU[(id-1)%MENU.length]);
+        if (id % COMBO_EVERY == 0) {
+            return new ComboMeal(new MenuItem("Salad"), new MenuItem("Pasta"));
+        }
+        return new MenuItem(MENU[(id - 1) % MENU.length]);
     }
-
-    public Order placeOrder(MenuItem item){
+    public Order placeOrder(MenuItem item, HappyHourPowerUp powerUp){
         requireStatus(CustomerStatus.SEATED,"place an order");
-        this.order = new Order(this, item, calculateBill(item));  
+        int bill = powerUp.applyTo(calculateBill(item));
+        this.order = new Order(this, item, bill);   
         this.status = CustomerStatus.ORDERED;
         return order;
     }
@@ -112,6 +114,12 @@ public abstract class Customer {
             if (satisfaction < 0) {
                 satisfaction = 0;
             }
+        }
+    }
+
+    public void recover(int amount) {
+        if (isLosingSatisfaction()) {
+            satisfaction = Math.min(START_SATISFACTION, satisfaction + amount);
         }
     }
 
