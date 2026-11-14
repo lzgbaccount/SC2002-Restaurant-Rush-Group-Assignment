@@ -32,3 +32,38 @@ None.
 ## Unchanged
 
 `ActionRejectedException`, `Cashier`, `Chef`, `CustomerStatus`, `GameResult`, `Main`, `OrderStatus`, `Result`, `Settings`, `Staff`, `Table`, `Waiter`, `WaiterAction`, `WaitingQueue`. The staff classes and the turn rules needed no changes for the new customer types.
+
+
+# Restaurant Rush – Stage 2 → Stage 3: Host, ComboMeal and Happy Hour
+
+This file lists every difference between tags `stage-2` and `stage-3`: new files, existing files changed or deleted (with reasons), and the GitHub compare link.
+
+**Compare:** https://github.com/lzgbaccount/SC2002-Restaurant-Rush-Group-Assignment/compare/stage-2...stage-3
+
+## New files
+
+| File | Purpose |
+|---|---|
+| `Host.java` | Subclass of `Staff` with `seat(Customer, Table)`. The Host can seat one queued customer per turn, in addition to the Waiter's task. It reuses the once-per-turn rule (`canAct`, `waitTurn`) inherited from `Staff`. |
+| `ComboMeal.java` | Subclass of `MenuItem`, composed of two `MenuItem`s (`first`, `second`). Prep units are the sum of the two, price is 90% of their combined price, rounded with `MenuItem.percentOf`. Because a combo *is* a `MenuItem`, `Order`, `Chef` and `Cashier` handle it with no changes. |
+| `HappyHourPowerUp.java` |  Contains information on whether it has been used, how many turns remain, `activate()`, `applyTo(cents)` (20% off while active) and endTurn(). |
+
+## Changed files
+
+| File | What changed | Why |
+|---|---|---|
+| `GameController.java` | Added the `host` and `powerUp` fields. `startTurn()` now returns the start-of-turn events . Added `activateHappyHourPowerUp()`, `hostSeat()`, `hostWait()` and `requireHostFirst()`, so the Host acts before the Waiter. The old `seat()` was split into `seatNextCustomer()` and `tableForSeating()`, which the Host and the Waiter share. `endTurn()` also requires the Host to have acted, and counts down the power-up. | The controller enforces the turn order and owns the new staff member and power-up. Sharing the seating code means the Host and Waiter apply the same rules. |
+| `Customer.java` | `choosefood()` returns the Salad + Pasta `ComboMeal` for every third customer (`COMBO_EVERY = 3`). `placeOrder()` takes the `HappyHourPowerUp` and locks `powerUp.applyTo(calculateBill(item))`. Added `recover(amount)`, capped at 100. | This is our combo rule. Applying Happy Hour to the result of `calculateBill()` gives the VIP discount first and Happy Hour second, as required, and locks the price when the order is taken. Waiting customers recover satisfaction during Happy Hour. |
+| `Waiter.java` | `takeOrder(Customer)` became `takeOrder(Customer, HappyHourPowerUp)`. | Passes the power-up through to `placeOrder()`, so the bill is decided at the moment the order is taken. |
+| `MenuItem.java` | Added a `protected MenuItem(String, int, int)` constructor. | `ComboMeal` can set its own name, price and prep units. The public constructor still only accepts the three menu dishes. |
+| `ConsoleUI.java` | Added `powerUpPhase()` and `hostPhase()`. `seatMenu()` now takes a seating action, so the Host and Waiter share it. Added `describePowerUp()`, which shows Happy Hour's state and remaining turns, plus welcome text for the Host, combo and Happy Hour. | The new manager choices and the required display of Happy Hour's remaining duration. |
+|  ||
+
+## Deleted files
+
+None.
+
+## Unchanged
+
+`ActionRejectedException`, `Cashier`, `Chef`, `CriticCustomer`, `CustomerStatus`, `GameResult`, `Main`, `OrderStatus`, `RegularCustomer`, `Result`, `Settings`, `Staff`, `Table`, `VIPCustomer`, `WaiterAction`, `WaitingQueue`. The Stage 2 customer subclasses, the Chef and the Cashier work with combos and Happy Hour as they are.
+
