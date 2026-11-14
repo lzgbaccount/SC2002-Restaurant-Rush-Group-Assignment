@@ -13,7 +13,6 @@ public class ComboMeal extends MenuItem {
     }
 
     private static int comboPrice(MenuItem first, MenuItem second) {
-        if (first == null || second == null) throw new IllegalArgumentException("A combo needs two menu items");
         int combined = first.getPriceCents() + second.getPriceCents();
         return MenuItem.percentOf(combined, COMBO_PRICE_PERCENT);
     }
