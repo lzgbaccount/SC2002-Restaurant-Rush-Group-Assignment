@@ -1,6 +1,8 @@
 # SC2002-Restaurant-Rush-Group-Assignment
 source code for the 3 stages for the project 
 
+All code can be run when compiled and by running the main files.
+
 # Restaurant Rush – Stage 1 → Stage 2: VIP and Critic customers
 
 This file lists every difference between tags `stage-1` and `stage-2`: new files, existing files changed or deleted (with reasons), and the GitHub compare link.
@@ -66,4 +68,17 @@ None.
 ## Unchanged
 
 `ActionRejectedException`, `Cashier`, `Chef`, `CriticCustomer`, `CustomerStatus`, `GameResult`, `Main`, `OrderStatus`, `RegularCustomer`, `Result`, `Settings`, `Staff`, `Table`, `VIPCustomer`, `WaiterAction`, `WaitingQueue`. The Stage 2 customer subclasses, the Chef and the Cashier work with combos and Happy Hour as they are.
+
+## Video
+| # | Segment | Timestamp |
+|---|---|---|
+| 1 | The game launching from the submitted project | 0:00 – 1:35 |
+| 2 | Meaningful manager choices, including a decision where staff are constrained | 2:00 – 2:30 (choices)<br>4:30 (constrained decision) |
+| 3 | A dish going READY → SERVED → payment | 2:10 – 2:45 |
+| 4 | A VIP or Critic behaviour | 2:30 – 3:00 (VIP)<br>3:05 – 3:15 (Critic) |
+| 5 | A Stage 3 feature | 2:20 – 2:35 (Happy Hour)<br>4:20 – 4:25 (Combo Meal) |
+| 6 | One victory and one defeat | 3:20 (Stage 2 victory)<br>5:45 (Stage 3 victory)<br>6:05 – 6:50 (Stage 3 defeat) |
+| 7 | The stage tag comparisons and the diagrams | 7:00 – 14:37 |
+| 8 | Individual reflections | Mansib: 1:39 – 1:59<br>Ryan: 6:20 – 6:57<br>Longze: 10:20 – 11:06<br>Matthew: 14:00 – 14:37 |
+
 
